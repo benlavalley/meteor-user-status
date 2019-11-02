@@ -12,6 +12,8 @@ import { Mongo } from 'meteor/mongo';
 import { _ } from 'meteor/underscore';
 import { EventEmitter } from 'events';
 
+export const userStatusConfig = {};
+
 const UserConnections = new Mongo.Collection('user_status_sessions', {
   connection: null
 });
@@ -131,12 +133,14 @@ statusEvents.on('connectionActive', (advice) => {
   });
 });
 
+
 // Reset online status on startup (users will reconnect)
 const onStartup = (selector) => {
+  console.log('onStartup executing! userStatusConfig.noStartup ', userStatusConfig.noStartup);
   if (selector == null) {
     selector = {};
   }
-  return Meteor.users.update(selector, {
+  return !userStatusConfig.noStartup && Meteor.users.update(selector, {
     $set: {
       'status.online': false
     },
