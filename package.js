@@ -3,12 +3,12 @@
 Package.describe({
   name: 'mizzao:user-status',
   summary: 'User connection and idle state tracking for Meteor',
-  version: '1.0.0',
+  version: '1.0.1',
   git: 'https://github.com/mizzao/meteor-user-status.git'
 });
 
 Package.onUse((api) => {
-  api.versionsFrom('1.7.0.5');
+  api.versionsFrom('1.8.1');
 
   api.use('ecmascript');
   api.use('accounts-base');
@@ -16,7 +16,7 @@ Package.onUse((api) => {
   api.use('underscore');
   api.use('mongo');
   api.use('tracker', 'client');
-  api.use('mizzao:timesync@0.5.1');
+  api.use('mizzao:timesync@0.5.2');
 
   api.export('MonitorInternals', 'client', {
     testOnly: true
@@ -33,7 +33,7 @@ Package.onUse((api) => {
 Package.onTest((api) => {
   api.use('ecmascript');
   api.use('mizzao:user-status');
-  api.use('mizzao:timesync@0.5.1');
+  api.use('mizzao:timesync@0.5.2');
 
   api.use(['accounts-base', 'accounts-password']);
   api.use('underscore');

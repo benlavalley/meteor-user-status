@@ -48,7 +48,7 @@ statusEvents.on('connectionLogin', (advice) => {
   if (!_.every(conns, c => c.idle)) {
     update.$set['status.idle'] = false;
     update.$unset = {
-      'status.lastActivity': null
+      'status.lastActivity': 1
     };
   }
   // in other case, idle field remains true and no update to lastActivity.
@@ -68,8 +68,8 @@ statusEvents.on('connectionLogout', (advice) => {
         'status.online': false
       },
       $unset: {
-        'status.idle': null,
-        'status.lastActivity': null
+        'status.idle': 1,
+        'status.lastActivity': 1
       }
     });
   } else if (_.every(conns, c => c.idle)) {
@@ -126,7 +126,7 @@ statusEvents.on('connectionActive', (advice) => {
       'status.idle': false
     },
     $unset: {
-      'status.lastActivity': null
+      'status.lastActivity': 1
     }
   });
 });
@@ -141,8 +141,8 @@ const onStartup = (selector) => {
       'status.online': false
     },
     $unset: {
-      'status.idle': null,
-      'status.lastActivity': null
+      'status.idle': 1,
+      'status.lastActivity': 1
     }
   }, {
     multi: true
@@ -194,8 +194,8 @@ const tryLogoutSession = (connection, date) => {
   // Yes, this is actually a user logging out.
   UserConnections.upsert(connection.id, {
     $unset: {
-      userId: null,
-      loginTime: null
+      userId: 1,
+      loginTime: 1
     }
   });
 
@@ -233,7 +233,7 @@ const activeSession = (connection, date, userId) => {
       idle: false
     },
     $unset: {
-      lastActivity: null
+      lastActivity: 1
     }
   });
 
