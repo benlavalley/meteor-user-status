@@ -20,40 +20,42 @@ const UserConnections = new Mongo.Collection('user_status_sessions', {
 
 const statusEvents = new (EventEmitter)();
 
-let updateCollection = Meteor.users;
-let _id = '_id';
-let statusOnline = 'status.online';
-let statusIdle = 'status.idle';
-let statusLastActivity = 'status.lastActivity';
-let statusLastLoginDate = 'status.lastLogin.date';
-let statusUserIpAddr = 'status.lastLogin.ipAddr';
-let statusUserAgent = 'status.lastLogin.userAgent';
-let customOptions = {};
+userStatusConfig.updateCollection = Meteor.users;
+userStatusConfig._id = '_id';
+userStatusConfig.statusOnline = 'status.online';
+userStatusConfig.statusIdle = 'status.idle';
+userStatusConfig.statusLastActivity = 'status.lastActivity';
+userStatusConfig.statusLastLoginDate = 'status.lastLogin.date';
+userStatusConfig.statusUserIpAddr = 'status.lastLogin.ipAddr';
+userStatusConfig.statusUserAgent = 'status.lastLogin.userAgent';
+userStatusConfig.customOptions = {};
 
-if (userStatusConfig.customCollection) {
-	updateCollection = userStatusConfig.customCollection.collectionName;
-	if (!updateCollection) {
-		throw new Error(`meteor-user-status has custom collection usage defined but custom collection missing! full config: ${JSON.stringify(userStatusConfig)}`);
+Meteor.startup(function () {
+	if (userStatusConfig.customCollection) {
+		userStatusConfig.updateCollection = userStatusConfig.customCollection.collectionName;
+		if (!userStatusConfig.updateCollection) {
+			throw new Error(`meteor-user-status has custom collection usage defined but custom collection missing! full config: ${JSON.stringify(userStatusConfig)}`);
+		}
+		try {
+			userStatusConfig.updateCollection.findOne({}, { fields: { _id: 1 } });
+		} catch (e) {
+			console.log(e);
+			throw new Error('meteor-user-status has custom collection defined but mongo error trying to access collection.');
+		}
+		if (userStatusConfig.customCollection.customMapping) {
+			userStatusConfig._id = userStatusConfig.customCollection.customMapping._id || userStatusConfig._id;
+			userStatusConfig.statusOnline = userStatusConfig.customCollection.customMapping['status.online'] || userStatusConfig.statusOnline;
+			userStatusConfig.statusIdle = userStatusConfig.customCollection.customMapping['status.idle'] || userStatusConfig.statusIdle;
+			userStatusConfig.statusLastActivity = userStatusConfig.customCollection.customMapping['status.lastActivity'] || userStatusConfig.statusLastActivity;
+			userStatusConfig.statusLastLoginDate = userStatusConfig.customCollection.customMapping['status.lastLogin.date'] || userStatusConfig.statusLastLoginDate;
+			userStatusConfig.statusUserIpAddr = userStatusConfig.customCollection.customMapping['status.lastLogin.ipAddr'] || userStatusConfig.statusUserIpAddr;
+			userStatusConfig.customOptions = userStatusConfig.customCollection.customMapping['status.lastLogin.userAgent'] || userStatusConfig.statusUserAgent;
+		}
+		if (userStatusConfig.customCollection.customOptions) {
+			userStatusConfig.customOptions = userStatusConfig.customCollection.customOptions || userStatusConfig.customOptions;
+		}
 	}
-	try {
-		updateCollection.findOne({}, { fields: { _id: 1 } });
-	} catch (e) {
-		console.log(e);
-		throw new Error('meteor-user-status has custom collection defined but mongo error trying to access collection.');
-	}
-	if (userStatusConfig.customCollection.customMapping) {
-		_id = userStatusConfig.customCollection.customMapping._id || _id;
-		statusOnline = userStatusConfig.customCollection.customMapping.statusOnline || statusOnline;
-		statusIdle = userStatusConfig.customCollection.customMapping.statusIdle || statusIdle;
-		statusLastActivity = userStatusConfig.customCollection.customMapping.statusLastActivity || statusLastActivity;
-		statusLastLoginDate = userStatusConfig.customCollection.customMapping.statusLastLoginDate || statusLastLoginDate;
-		statusUserIpAddr = userStatusConfig.customCollection.customMapping.statusUserIpAddr || statusUserIpAddr;
-		statusUserAgent = userStatusConfig.customCollection.customMapping.statusUserAgent || statusUserAgent;
-	}
-	if (userStatusConfig.customCollection.customOptions) {
-		customOptions = userStatusConfig.customCollection.customOptions || customOptions;
-	}
-}
+});
 
 /*
   Multiplex login/logout events to status.online
@@ -68,10 +70,10 @@ if (userStatusConfig.customCollection) {
 statusEvents.on('connectionLogin', (advice) => {
 	const update = {
 		$set: {
-			[statusOnline]: true,
-			[statusLastLoginDate]: advice.loginTime,
-			[statusUserIpAddr]: advice.ipAddr,
-			[statusUserAgent]: advice.userAgent,
+			[userStatusConfig.statusOnline]: true,
+			[userStatusConfig.statusLastLoginDate]: advice.loginTime,
+			[userStatusConfig.statusUserIpAddr]: advice.ipAddr,
+			[userStatusConfig.statusUserAgent]: advice.userAgent,
 		},
 	};
 
@@ -81,14 +83,14 @@ statusEvents.on('connectionLogin', (advice) => {
 		userId: advice.userId,
 	}).fetch();
 	if (!_.every(conns, (c) => c.idle)) {
-		update.$set[statusIdle] = false;
+		update.$set[userStatusConfig.statusIdle] = false;
 		update.$unset = {
-			[statusLastActivity]: 1,
+			[userStatusConfig.statusLastActivity]: 1,
 		};
 	}
 	// in other case, idle field remains true and no update to lastActivity.
 
-	advice.userId && updateCollection.update({ [_id]: advice.userId }, update, customOptions);
+	advice.userId && userStatusConfig.updateCollection.update({ [userStatusConfig._id]: advice.userId }, update, userStatusConfig.customOptions);
 });
 
 statusEvents.on('connectionLogout', (advice) => {
@@ -98,15 +100,15 @@ statusEvents.on('connectionLogout', (advice) => {
 	if (conns.length === 0) {
 		// Go offline if we are the last connection for this user
 		// This includes removing all idle information
-		advice.userId && updateCollection.update({ [_id]: advice.userId }, {
+		advice.userId && userStatusConfig.updateCollection.update({ [userStatusConfig._id]: advice.userId }, {
 			$set: {
-				[statusOnline]: false,
+				[userStatusConfig.statusOnline]: false,
 			},
 			$unset: {
-				[statusIdle]: 1,
-				[statusLastActivity]: 1,
+				[userStatusConfig.statusIdle]: 1,
+				[userStatusConfig.statusLastActivity]: 1,
 			},
-		}, customOptions);
+		}, userStatusConfig.customOptions);
 	} else if (_.every(conns, (c) => c.idle)) {
 		/*
       All remaining connections are idle:
@@ -120,12 +122,12 @@ statusEvents.on('connectionLogout', (advice) => {
 			return;
 		} // The dropped connection was already idle
 
-		advice.userId && updateCollection.update({ [_id]: advice.userId }, {
+		advice.userId && userStatusConfig.updateCollection.update({ [userStatusConfig._id]: advice.userId }, {
 			$set: {
-				[statusIdle]: true,
-				[statusLastActivity]: _.max(_.pluck(conns, 'lastActivity')),
+				[userStatusConfig.statusIdle]: true,
+				[userStatusConfig.statusLastActivity]: _.max(_.pluck(conns, 'lastActivity')),
 			},
-		}, customOptions);
+		}, userStatusConfig.customOptions);
 	}
 });
 
@@ -147,23 +149,23 @@ statusEvents.on('connectionIdle', (advice) => {
 	// This will not be the most recent idle across a disconnection, so we use max
 
 	// TODO: the race happens here where everyone was idle when we looked for them but now one of them isn't.
-	advice.userId && updateCollection.update({ [_id]: advice.userId }, {
+	advice.userId && userStatusConfig.updateCollection.update({ [userStatusConfig._id]: advice.userId }, {
 		$set: {
-			[statusIdle]: true,
-			[statusLastActivity]: _.max(_.pluck(conns, 'lastActivity')),
+			[userStatusConfig.statusIdle]: true,
+			[userStatusConfig.statusLastActivity]: _.max(_.pluck(conns, 'lastActivity')),
 		},
-	}, customOptions);
+	}, userStatusConfig.customOptions);
 });
 
 statusEvents.on('connectionActive', (advice) => {
-	advice.userId && updateCollection.update({ [_id]: advice.userId }, {
+	advice.userId && userStatusConfig.updateCollection.update({ [userStatusConfig._id]: advice.userId }, {
 		$set: {
-			[statusIdle]: false,
+			[userStatusConfig.statusIdle]: false,
 		},
 		$unset: {
-			[statusLastActivity]: 1,
+			[userStatusConfig.statusLastActivity]: 1,
 		},
-	}, customOptions);
+	}, userStatusConfig.customOptions);
 });
 
 // Reset online status on startup (users will reconnect)
@@ -172,16 +174,16 @@ const onStartup = (selector) => {
 	if (selector == null) {
 		selector = {};
 	}
-	Object.assign(customOptions, { multi: true });
-	return !userStatusConfig.noResetStartup && updateCollection.update(selector, {
+	Object.assign(userStatusConfig.customOptions, { multi: true });
+	return !userStatusConfig.noResetStartup && userStatusConfig.updateCollection.update(selector, {
 		$set: {
-			[statusOnline]: false,
+			[userStatusConfig.statusOnline]: false,
 		},
 		$unset: {
-			[statusIdle]: 1,
-			[statusLastActivity]: 1,
+			[userStatusConfig.statusIdle]: 1,
+			[userStatusConfig.statusLastActivity]: 1,
 		},
-	}, customOptions);
+	}, userStatusConfig.customOptions);
 };
 
 /*
