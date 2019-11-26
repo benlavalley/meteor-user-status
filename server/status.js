@@ -49,7 +49,7 @@ Meteor.startup(function () {
 			userStatusConfig.statusLastActivity = userStatusConfig.customCollection.customMapping['status.lastActivity'] || userStatusConfig.statusLastActivity;
 			userStatusConfig.statusLastLoginDate = userStatusConfig.customCollection.customMapping['status.lastLogin.date'] || userStatusConfig.statusLastLoginDate;
 			userStatusConfig.statusUserIpAddr = userStatusConfig.customCollection.customMapping['status.lastLogin.ipAddr'] || userStatusConfig.statusUserIpAddr;
-			userStatusConfig.customOptions = userStatusConfig.customCollection.customMapping['status.lastLogin.userAgent'] || userStatusConfig.statusUserAgent;
+			userStatusConfig.statusUserAgent = userStatusConfig.customCollection.customMapping['status.lastLogin.userAgent'] || userStatusConfig.statusUserAgent;
 		}
 		if (userStatusConfig.customCollection.customOptions) {
 			userStatusConfig.customOptions = userStatusConfig.customCollection.customOptions || userStatusConfig.customOptions;
