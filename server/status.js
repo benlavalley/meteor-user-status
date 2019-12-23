@@ -29,6 +29,7 @@ userStatusConfig.statusLastLoginDate = 'status.lastLogin.date';
 userStatusConfig.statusUserIpAddr = 'status.lastLogin.ipAddr';
 userStatusConfig.statusUserAgent = 'status.lastLogin.userAgent';
 userStatusConfig.customOptions = {};
+userStatusConfig.noUnset = [];
 
 Meteor.startup(function () {
 	if (userStatusConfig.customCollection) {
@@ -53,6 +54,9 @@ Meteor.startup(function () {
 		}
 		if (userStatusConfig.customCollection.customOptions) {
 			userStatusConfig.customOptions = userStatusConfig.customCollection.customOptions || userStatusConfig.customOptions;
+		}
+		if (userStatusConfig.customCollection.noUnset) {
+			userStatusConfig.noUnset = userStatusConfig.customCollection.noUnset || userStatusConfig.noUnset;
 		}
 	}
 });
@@ -84,9 +88,11 @@ statusEvents.on('connectionLogin', (advice) => {
 	}).fetch();
 	if (!_.every(conns, (c) => c.idle)) {
 		update.$set[userStatusConfig.statusIdle] = false;
-		update.$unset = {
-			[userStatusConfig.statusLastActivity]: 1,
-		};
+		if (!_.contains(userStatusConfig.noUnset, userStatusConfig.statusLastActivity)) {
+      update.$unset = {
+        [userStatusConfig.statusLastActivity]: 1,
+      };
+    }
 	}
 	// in other case, idle field remains true and no update to lastActivity.
 
@@ -100,15 +106,27 @@ statusEvents.on('connectionLogout', (advice) => {
 	if (conns.length === 0) {
 		// Go offline if we are the last connection for this user
 		// This includes removing all idle information
-		advice.userId && userStatusConfig.updateCollection.update({ [userStatusConfig._id]: advice.userId }, {
-			$set: {
-				[userStatusConfig.statusOnline]: false,
-			},
-			$unset: {
-				[userStatusConfig.statusIdle]: 1,
-				[userStatusConfig.statusLastActivity]: 1,
-			},
-		}, userStatusConfig.customOptions);
+    const queryObj = { [userStatusConfig._id]: advice.userId };
+    const updateObj = {
+      $set: {
+        [userStatusConfig.statusOnline]: false,
+      },
+    };
+    if (!_.contains(userStatusConfig.noUnset, userStatusConfig.statusIdle)) {
+      updateObj.$unset = {
+        [userStatusConfig.statusIdle]: 1,
+      };
+    }
+    if (!_.contains(userStatusConfig.noUnset, userStatusConfig.statusLastActivity)) {
+      if (!updateObj.$unset) {
+        updateObj.$unset = {
+          [userStatusConfig.statusLastActivity]: 1,
+        };
+      } else {
+        updateObj.$unset[userStatusConfig.statusLastActivity] = 1;
+      }
+    }
+		advice.userId && userStatusConfig.updateCollection.update(queryObj, updateObj, userStatusConfig.customOptions);
 	} else if (_.every(conns, (c) => c.idle)) {
 		/*
       All remaining connections are idle:
@@ -158,14 +176,17 @@ statusEvents.on('connectionIdle', (advice) => {
 });
 
 statusEvents.on('connectionActive', (advice) => {
-	advice.userId && userStatusConfig.updateCollection.update({ [userStatusConfig._id]: advice.userId }, {
-		$set: {
-			[userStatusConfig.statusIdle]: false,
-		},
-		$unset: {
-			[userStatusConfig.statusLastActivity]: 1,
-		},
-	}, userStatusConfig.customOptions);
+  const updateObj = {
+    $set: {
+      [userStatusConfig.statusIdle]: false,
+    },
+  };
+  if (!_.contains(userStatusConfig.noUnset, userStatusConfig.statusLastActivity)) {
+    updateObj.$unset = {
+      [userStatusConfig.statusLastActivity]: 1,
+    };
+  }
+	advice.userId && userStatusConfig.updateCollection.update({ [userStatusConfig._id]: advice.userId }, updateObj, userStatusConfig.customOptions);
 });
 
 // Reset online status on startup (users will reconnect)
@@ -175,15 +196,27 @@ const onStartup = (selector) => {
 		selector = {};
 	}
 	Object.assign(userStatusConfig.customOptions, { multi: true });
-	return !userStatusConfig.noResetStartup && userStatusConfig.updateCollection.update(selector, {
-		$set: {
-			[userStatusConfig.statusOnline]: false,
-		},
-		$unset: {
-			[userStatusConfig.statusIdle]: 1,
-			[userStatusConfig.statusLastActivity]: 1,
-		},
-	}, userStatusConfig.customOptions);
+	const updateObj = {
+    $set: {
+      [userStatusConfig.statusOnline]: false,
+    }
+  };
+
+  if (!_.contains(userStatusConfig.noUnset, userStatusConfig.statusIdle)) {
+    updateObj.$unset = {
+      [userStatusConfig.statusIdle]: 1,
+    };
+  }
+  if (!_.contains(userStatusConfig.noUnset, userStatusConfig.statusLastActivity)) {
+    if (!updateObj.$unset) {
+      updateObj.$unset = {
+        [userStatusConfig.statusLastActivity]: 1,
+      };
+    } else {
+      updateObj.$unset[userStatusConfig.statusLastActivity] = 1;
+    }
+  }
+	return !userStatusConfig.noResetStartup && userStatusConfig.updateCollection.update(selector, updateObj, userStatusConfig.customOptions);
 };
 
 /*
