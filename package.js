@@ -8,7 +8,7 @@ Package.describe({
 });
 
 Package.onUse((api) => {
-  api.versionsFrom('1.8.1');
+  api.versionsFrom('2.5');
 
   api.use('ecmascript');
   api.use('accounts-base');

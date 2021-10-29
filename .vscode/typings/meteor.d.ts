@@ -1399,7 +1399,7 @@ declare module Mongo {
     }, callback ? : Function): {
       numberAffected ? : number;insertedId ? : string;
     };
-    _ensureIndex(indexName: string, options ? : {
+    createIndex(indexName: string, options ? : {
       [key: string]: any
     }): void;
   }
@@ -1503,7 +1503,7 @@ declare module "meteor/mongo" {
       }, callback ? : Function): {
         numberAffected ? : number;insertedId ? : string;
       };
-      _ensureIndex(indexName: string, options ? : {
+      createIndex(indexName: string, options ? : {
         [key: string]: any
       }): void;
     }
